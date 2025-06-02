@@ -1,0 +1,65 @@
+# Имя для нашего воркфлоу - будет отображаться в интерфейсе GitHub
+name: OpenSSL Secret Scanner
+
+# Указываем когда запускать проверки
+on:
+    # Можно запустить вручную из интерфейса
+    workflow_dispatch:
+jobs:
+  find_secrets:
+    name: Scan OpenSSL Code
+    # Используем последнюю убунту
+    runs-on: ubuntu-latest
+    
+    steps:
+    # Клонируем репозиторий OpenSSL
+    - name: Clone OpenSSL
+      uses: actions/checkout@v4
+      with:
+        repository: openssl/openssl
+        fetch-depth: 0
+
+    # Ставим Trivy
+    - name: Install Trivy
+      run: |
+        sudo apt update
+        sudo apt install -y wget apt-transport-https
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+        echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+        sudo apt update
+        sudo apt install -y trivy
+
+    # Главный шаг - ищем секреты в коде
+    - name: Scan for secrets
+      run: |
+        echo "🔍 Starting secret scan..."
+        # Запускаем сканер и сохраняем результаты
+        trivy fs --scanners secret . > scan_results.txt
+        
+        # Проверяем, есть ли найденные секреты
+        if grep -q "Total:" scan_results.txt; then
+          echo "SECURITY ALERT: Secrets found in the codebase!"
+          echo "Check the scan results for details."
+          exit 1
+        fi
+      
+    # Сохраняем результаты проверки
+    - name: Save Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-scan-results
+        path: scan_results.txt
+        retention-days: 5
+
+    # Выводим сводку
+    - name: Show Summary
+      if: always()
+      run: |
+        echo "=== Scan Summary ==="
+        if [ -f scan_results.txt ]; then
+          echo "Found secrets:"
+          grep -A 5 "Total:" scan_results.txt || echo "No secrets found"
+        else 
+          echo "!!! Scan results file not found !!!"
+        fi
