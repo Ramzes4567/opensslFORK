@@ -1,25 +1,18 @@
-# Имя для нашего воркфлоу - будет отображаться в интерфейсе GitHub
 name: OpenSSL Secret Scanner
 
-# Указываем когда запускать проверки
 on:
-    # Можно запустить вручную из интерфейса
     workflow_dispatch:
+
 jobs:
   find_secrets:
     name: Scan OpenSSL Code
-    # Используем последнюю убунту
     runs-on: ubuntu-latest
     
     steps:
-    # Клонируем репозиторий OpenSSL
-    - name: Clone OpenSSL
+    - name: Checkout Repository
       uses: actions/checkout@v4
-      with:
-        repository: Ramzes4567/opensslFORK
-        fetch-depth: 0
 
-    # Ставим Trivy
+
     - name: Install Trivy
       run: |
         sudo apt update
@@ -29,21 +22,17 @@ jobs:
         sudo apt update
         sudo apt install -y trivy
 
-    # Главный шаг - ищем секреты в коде
     - name: Scan for secrets
       run: |
         echo "🔍 Starting secret scan..."
-        # Запускаем сканер и сохраняем результаты
         trivy fs --scanners secret . > scan_results.txt
         
-        # Проверяем, есть ли найденные секреты
         if grep -q "Total:" scan_results.txt; then
           echo "SECURITY ALERT: Secrets found in the codebase!"
-          echo "Check the scan results for details."
+          cat scan_results.txt
           exit 1
         fi
       
-    # Сохраняем результаты проверки
     - name: Save Results
       if: always()
       uses: actions/upload-artifact@v4
@@ -52,7 +41,6 @@ jobs:
         path: scan_results.txt
         retention-days: 5
 
-    # Выводим сводку
     - name: Show Summary
       if: always()
       run: |
