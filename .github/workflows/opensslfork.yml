@@ -16,7 +16,7 @@ jobs:
     - name: Clone OpenSSL
       uses: actions/checkout@v4
       with:
-        repository: openssl/openssl
+        repository: Ramzes4567/opensslFORK
         fetch-depth: 0
 
     # Ставим Trivy
